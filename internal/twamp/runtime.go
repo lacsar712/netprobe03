@@ -50,7 +50,18 @@ func ExportSessionFile(root, rel string) (string, error) {
 	if filepath.IsAbs(rel) {
 		return "", errors.New("absolute session path")
 	}
-	return filepath.Join(root, rel), nil
+	// Resolve and clean both sides so that ".." segments in rel cannot
+	// escape the session root after the join.
+	absRoot := filepath.Clean(root)
+	full := filepath.Clean(filepath.Join(absRoot, rel))
+	inside, err := filepath.Rel(absRoot, full)
+	if err != nil {
+		return "", errors.New("session path escapes root")
+	}
+	if inside = filepath.ToSlash(inside); inside == ".." || strings.HasPrefix(inside, "../") {
+		return "", errors.New("session path escapes root")
+	}
+	return full, nil
 }
 
 func CopyPadding(pad []byte, n int) []byte {
